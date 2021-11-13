@@ -1,0 +1,468 @@
+---
+title: "ANOVA test of the data"
+author: "H NIU"
+date: "July 21, 2021"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+Patient characteristics were compared by mortality outcome. For categorical variable, frequenceies and column percentages (%) were reported and p-values were calculated using 2 test or Fisher’s exact test when smallest expected frequencies are lower than 5. Continuous variables were tested for normality using both visual inspections (QQ-plots with histograms) and a formal inspection (Shapiro-Wilk test). Normally distributed continuous variables were reported using means and standard deviations (SD) and p-values were calculated using two-sample t-tests and on-way ANOVAs.
+Non-normally distributed variables were reported as medians and first/third quartiles, with p-values calculated using Mann–Whitney–Wilcoxon and Kruskal -Wallis tests. 
+
+The analyses were done in R programming languages, version 3.6.3. The code has been uploaded on the Github as well <https://github.com/niuneo/Mortality-factors-analysis-of-perioperative-cardiac-arrest>.
+
+
+```{r library}
+
+library(tidyselect)
+library(readr)
+library(ggplot2)
+library(xlsx)
+library(car)
+library(dplyr)
+library(plyr)
+
+```
+
+```{r loading data}
+
+getwd()
+setwd("C:\\Users\\neo\\Huijie\\Code\\Predicting CA Mortality\\Data\\")
+
+data<-read.xlsx("150CA_EN20210701.xlsx",1)
+
+data$Outcome <- ifelse(data$Died ==1, "Died", "Survived")
+
+```
+
+## Part I: Categorical variables: test of independence?
+
+
+<!-- ```{r frequency and perentage} -->
+
+<!-- my_seq0 <- c(1,4:20) -->
+
+<!-- #Convert data.frame columns from factors to characters -->
+<!-- #data1 <- data.frame(lapply(data, as.character),stringsAsFactors = FALSE) -->
+
+<!-- for (i0 in my_seq0) { # variables to compare -->
+<!--   freq_all <- count(data,colnames(data)[i0]) -->
+<!--   data_survived <- data %>% -->
+<!--     filter(Outcome=='Survived') -->
+<!--     freq_survived <- count(data_survived, colnames(data)[i0]) -->
+<!--     percentage_survived <- bind_cols(freq_all[,1],freq_survived[,2]/freq_all[,2]*100) -->
+<!--     freq_died <- bind_cols(freq_all[,1],freq_all[,2]-freq_survived[,2]) -->
+<!--   # add next legend text -->
+<!--   print(colnames(data)[i0]) -->
+<!--   print('frequency of all patients=') -->
+<!--   print(freq_all)  -->
+<!--   print('frequency of survived patients=') -->
+<!--   print(freq_survived) -->
+<!--   print('percentage of survived patients=') -->
+<!--   print(percentage_survived) -->
+<!--   print('frequency of died patients=') -->
+<!--   print(freq_died) -->
+<!--   print('percentage of died patients=') -->
+<!--   print(100-percentage_survived) -->
+
+<!-- } -->
+<!-- ``` -->
+
+
+```{r Chi-square test of independence}
+
+#H0 : the variables are independent, there is no relationship between the two categorical variables. 
+#H1 : the variables are dependent, there is a relationship between the two categorical variables
+#if the p-value is less than the significance level, we can reject the null hypothesis
+
+print('Chi-square test')
+my_seq0 <- c(1,4:20)
+# empty legend text
+#legend_text <- c(data)
+
+for (i0 in my_seq0) { # variables to compare
+  test <- chisq.test(table(data[, i0], data$Outcome))
+  test$statistic # test statistic
+  test$p.value # p-value
+# add next legend text
+  print(colnames(data)[i0])
+  print('statistic=')
+  print(test$statistic) #  test statistic
+  print('p-value=')
+  print(test$p.value) #  p-value
+}
+
+```
+
+
+```{r Fishers exact test of independence}
+
+#H0 : the variables are independent, there is no relationship between the two categorical variables. 
+#H1 : the variables are dependent, there is a relationship between the two categorical variables
+#if the p-value is less than the significance level, we can reject the null hypothesis
+
+# The Fisher’s exact test does not require the assumption of a minimum of 5 expected counts.
+print('Fishers exact test')
+my_seq0 <- c(1,4:20)
+# empty legend text
+#legend_text <- c(data)
+
+for (i0 in my_seq0) { # variables to compare
+  test <-fisher.test(table(data[, i0], data$Outcome))
+  test$statistic # test statistic
+  test$p.value # p-value
+# add next legend text
+  print(colnames(data)[i0])
+  print('statistic=')
+  print(test$statistic) #  test statistic
+  print('p-value=')
+  print(test$p.value) #  p-value
+}
+
+# 3. Combination of plot and statistical test
+#mosaic() function from the {vcd} package. 
+#This function has the advantage that it combines a mosaic plot (to visualize a contingency table) 
+#and the result of the Chi-square test of independence
+
+# library(vcd)
+# 
+# mosaic(~ Gender + Outcome,
+#        direction = c("v", "h"),
+#        data = data,
+#        shade = TRUE)
+
+
+```
+
+## Part II: Continuous variables: a normal distribution?
+
+### Inspection of the normality
+
+```{r  in regard to total patients}
+#H0: the data follow a normal distribution; H1: the data do not follow a normal distribution
+#the p-value>0.05 implys that we do not reject the null hypothesis
+#In practice, normality tests are often considered as too conservative in the sense that for large sample size (
+#n> 50), a small deviation from the normality may cause the normality condition to be violated
+
+print('in regard to total patients')
+
+my_seq <- c(2,3,21:28)
+# empty legend text
+#legend_text <- c(data)
+
+for (i in my_seq) { # variables to compare
+  par(mfrow = c(1, 2)) # combine plots
+  hist(data[, i])
+  qqPlot(data[, i],id = FALSE # id = FALSE to remove point identification
+       )
+  # add next legend text
+  legend_text <- colnames(data)[i]
+  # plot legend once
+  legend('topright', legend = legend_text)
+  print(colnames(data)[i])
+  print(shapiro.test(data[, i])) # print results of Shapiro-Wilk test
+}
+
+
+
+```
+
+```{r  in regard to outcome Survived}
+#H0: the data follow a normal distribution; H1: the data do not follow a normal distribution
+#the p-value>0.05 implys that we do not reject the null hypothesis
+#In practice, normality tests are often considered as too conservative in the sense that for large sample size (
+#n> 50), a small deviation from the normality may cause the normality condition to be violated
+
+print('in regard to outcome status=Survived')
+# empty legend text
+#legend_text <- c(data)
+
+for (i in my_seq) { # variables to compare
+  dat <- data %>% 
+    filter(Outcome=='Survived')
+    par(mfrow = c(1, 2)) # combine plots
+    hist(dat[, i])
+    qqPlot(dat[, i],id = FALSE # id = FALSE to remove point identification
+       ) # add next legend text
+    legend_text <- colnames(dat)[i]  # plot legend once
+      legend('topright', legend = legend_text)
+      print(colnames(dat)[i])
+      print(shapiro.test(dat[, i])) # print results of Shapiro-Wilk test
+}
+
+
+```
+
+```{r  in regard to outcome Died}
+#H0: the data follow a normal distribution; H1: the data do not follow a normal distribution
+#the p-value>0.05 implys that we do not reject the null hypothesis
+#In practice, normality tests are often considered as too conservative in the sense that for large sample size (
+#n> 50), a small deviation from the normality may cause the normality condition to be violated
+
+
+print('in regard to outcome status=Died')
+# empty legend text
+#legend_text <- c(data)
+
+for (i in my_seq) { # variables to compare
+  dat <- data %>% 
+    filter(Outcome=='Died')
+    par(mfrow = c(1, 2)) # combine plots
+    hist(dat[, i])
+    qqPlot(dat[, i],id = FALSE # id = FALSE to remove point identification
+       ) # add next legend text
+    legend_text <- colnames(dat)[i]  # plot legend once
+      legend('topright', legend = legend_text)
+      print(colnames(dat)[i])
+      print(shapiro.test(dat[, i])) # print results of Shapiro-Wilk test
+}
+
+
+
+```
+
+
+###If the continuouse variable = normal distribution, then calcualte its Mean and Standar deviations with p-values calculated using two-sample t-tests and one-way ANOVAs
+
+```{r calcualte its Mean and Standar deviations}
+
+#H0: the mean values of 2 groups are same
+#H1: the mean values of 2 groups are statistically significant different
+
+my_seq2 <- c(2,3)
+print('continuouse variable = normal distribution')
+print('in regard to total patients ')
+# in regard to total patients
+for (i2 in my_seq2) { # variables to compare
+  mean = mean(data[, i2], na.rm = TRUE)
+  sd = sd(data[, i2], na.rm = TRUE)
+  # add next legend text
+  legend_text <- colnames(data)[i2]
+  print(colnames(data)[i2])
+  print('mean=') # print results of t-test
+  print(mean)
+  print('sd=')
+  print(sd)
+}
+
+# in regard to outcome status 
+print('in regard to outcome status ')
+for (i2 in my_seq2) { # variables to compare
+  anovas <- group_by(data, Outcome) %>%
+    summarise(
+    mean = mean(data[, i2], na.rm = TRUE),
+    sd = sd(data[, i2], na.rm = TRUE)
+  )
+  # add next legend text
+  legend_text <- colnames(data)[i2]
+  print(colnames(data)[i2])
+  print(anovas)
+  #print('mean=') # print results of t-test
+  #print(mean)
+  #print('sd=')
+  #print(sd)
+}
+
+
+```
+```{r Mean and SD in regard to outcome status Survived}
+# in regard to outcome status 
+print('in regard to outcome status Survived ')
+
+for (i2 in my_seq2) { # variables to compare
+  dat <- data %>% 
+    filter(Outcome=='Survived')
+    mean = mean(dat[, i2], na.rm = TRUE)
+    sd = sd(dat[, i2], na.rm = TRUE)
+  # add next legend text
+    legend_text <- colnames(data)[i2]
+    print(colnames(data)[i2])
+    print('mean=') # print results of t-test
+    print(mean)
+    print('sd=')
+    print(sd)
+}
+
+
+```
+```{r Mean and SD in regard to outcome status Died}
+# in regard to outcome status 
+print('in regard to outcome status Died ')
+
+for (i2 in my_seq2) { # variables to compare
+  dat <- data %>% 
+    filter(Outcome=='Died')
+    mean = mean(dat[, i2], na.rm = TRUE)
+    sd = sd(dat[, i2], na.rm = TRUE)
+  # add next legend text
+    legend_text <- colnames(data)[i2]
+    print(colnames(data)[i2])
+    print('mean=') # print results of t-test
+    print(mean)
+    print('sd=')
+    print(sd)
+}
+
+
+```
+
+
+```{r p-values calculated using two-sample t-tests}
+# Draw boxplots illustrating the distributions by group (with the boxplot() function
+#with p-values calculated using two-sample t-tests and one-way ANOVAs
+
+
+# 1st method: two sample Student’s t-test
+print('1st method: two sample Student’s t-test')
+for (i2 in my_seq2) { # variables to compare
+  boxplot(data[, i2] ~ data$Outcome, # draw boxplots by group
+          ylab = names(data[i2]), # rename y-axis with variable's name
+          xlab = "Outcome"
+  )
+  # add next legend text
+  legend_text <- colnames(data)[i2]
+  print(colnames(data)[i2])
+  print(t.test(data[, i2] ~ data$Outcome)) # print results of t-test
+}
+
+
+```
+
+```{r p-values calculated using one-way ANOVAs}
+
+# Draw boxplots illustrating the distributions by group (with the boxplot() function
+#with p-values calculated using two-sample t-tests and one-way ANOVAs
+
+
+# 2nd method: One-way ANOVA
+print('2nd method: One-way ANOVA')
+for (i2 in my_seq2) { # variables to compare
+  boxplot(data[, i2] ~ data$Outcome, # draw boxplots by group
+          ylab = names(data[i2]), # rename y-axis with variable's name
+          xlab = "Outcome"
+  )
+  # add next legend text
+  legend_text <- colnames(data)[i2]
+  print(colnames(data)[i2])
+  #print(summary(aov(data[, i] ~ data$Outcome))) # print results of One-way ANOVA
+  print(oneway.test(data[, i2] ~ data$Outcome))
+}
+
+
+```
+
+###If the continuouse variable =/= normal distribution, then calcualte its Medians and 1st/3rd quartiles with p-values calcualted using Mann -Whitney U and Kruskal -Wallis tests
+
+
+```{r  calcualte its Medians and 1st/3rd quartiles to the total patients}
+
+my_seq3 <- c(21:28)
+print('continuouse variable =/= normal distribution ')
+# in regard to total patients
+for (i3 in my_seq3) { # variables to compare
+  summary <- summary(data[, i3])
+  # add next legend text
+  print(colnames(data)[i3])
+  print(summary)
+}
+
+```
+
+
+```{r calcualte its Medians and 1st/3rd quartiles to the Survived patients}
+
+print('continuouse variable =/= normal distribution to outcome status Survived ')
+# in regard to total patients
+for (i3 in my_seq3) { # variables to compare
+  dat <- data %>% 
+    filter(Outcome=='Survived')
+    summary <- summary(dat[, i3])
+  # add next legend text
+    print(colnames(dat)[i3])
+    print(summary)
+}
+
+```
+
+
+```{r calcualte its Medians and 1st/3rd quartiles to the Died patients}
+
+print('continuouse variable =/= normal distribution to outcome status Died ')
+# in regard to total patients
+for (i3 in my_seq3) { # variables to compare
+  dat <- data %>% 
+    filter(Outcome=='Died')
+    summary <- summary(dat[, i3])
+  # add next legend text
+    print(colnames(dat)[i3])
+    print(summary)
+}
+
+```
+
+
+
+```{r with p-values calcualted using Mann -Whitney U test}
+
+#H0: the 2 groups are similar
+#H1: the 2 groups are different
+
+# Draw boxplots illustrating the distributions by group (with the boxplot() function
+#with p-values calculated using two-sample t-tests and one-way ANOVAs
+
+#1st method:  Mann -Whitney U
+print('Mann -Whitney U test')
+for (i3 in my_seq3) { # variables to compare
+  boxplot(data[, i3] ~ data$Outcome, # draw boxplots by group
+          ylab = names(data[i3]), # rename y-axis with variable's name
+          xlab = "Outcome"
+  )
+  # add next legend text
+  legend_text <- colnames(data)[i3]
+  print(colnames(data)[i3])
+  print(wilcox.test(data[, i3] ~ data$Outcome)) # print results of t-test
+}
+
+```
+
+```{r with p-values calcualted using Kruskal -Wallis test}
+# Draw boxplots illustrating the distributions by group (with the boxplot() function
+#with p-values calculated using two-sample t-tests and one-way ANOVAs
+
+#H0: the 2 groups are similar
+#H1: the 2 groups are different
+
+#2nd method: Kruskal -Wallis test
+print('Kruskal -Wallis test')
+for (i3 in my_seq3) { # variables to compare
+  boxplot(data[, i3] ~ data$Outcome, # draw boxplots by group
+          ylab = names(data[i3]), # rename y-axis with variable's name
+          xlab = "Outcome"
+  )
+  # add next legend text
+  legend_text <- colnames(data)[i3]
+  print(colnames(data)[i3])
+  print(kruskal.test(data[, i3] ~ data$Outcome)) # print results of t-test
+}
+
+
+```
+
+## Export results in csv format
+
+```{r export results, echo=FALSE}
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
